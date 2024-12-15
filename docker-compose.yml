@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  features:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: features
+    command: python3 -m src.apps.features
+    environment:
+      RABBIT_MQ_DSN: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - rabbitmq
+    networks:
+     - ihddocker
+
+  model:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: model
+    command: python3 -m src.apps.model
+    environment:
+      RABBIT_MQ_DSN: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - features
+      - rabbitmq
+    networks:
+     - ihddocker
+
+  metric:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: metric
+    links:
+      - rabbitmq
+    command: python3 -m src.apps.metric
+    environment:
+      RABBIT_MQ_DSN: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      - model
+      - rabbitmq
+    networks:
+     - ihddocker
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dashboard
+    command: python3 -m src.apps.dashboard
+    ports:
+      - "8050:8050"
+    expose:
+      - "8050"
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: rabbitmq
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"     # Основной порт AMQP
+      - "15672:15672"   # Порт для веб-интерфейса управления
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq       # Сохранение данных в volume
+    networks:
+      - ihddocker
+
+networks:
+  ihddocker:
+
+volumes:
+  rabbitmq-data:
